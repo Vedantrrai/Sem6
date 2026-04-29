@@ -95,6 +95,7 @@ export default function WorkerDashboard() {
         experience: editData.experience,
         description: editData.description,
         avatar: editData.avatar,
+        customTasks: editData.customTasks,
       });
       if (res.success && res.worker) {
         setWorkerProfile(res.worker);
@@ -238,6 +239,62 @@ export default function WorkerDashboard() {
                               <Label className="text-xs text-gray-500 uppercase tracking-wider">Bio / Description</Label>
                               <Textarea rows={3} value={editData.description || ''} onChange={e => setEditData({ ...editData, description: e.target.value })} className="mt-1 resize-none" />
                             </div>
+
+                            <div className="pt-4 border-t">
+                              <Label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block">Custom Tasks & Fixed Rates</Label>
+                              <div className="space-y-2 mb-3">
+                                {(editData.customTasks || []).map((task, idx) => (
+                                  <div key={idx} className="flex gap-2 items-center">
+                                    <Input 
+                                      value={task.name} 
+                                      onChange={e => {
+                                        const newTasks = [...(editData.customTasks || [])];
+                                        newTasks[idx].name = e.target.value;
+                                        setEditData({ ...editData, customTasks: newTasks });
+                                      }}
+                                      placeholder="Task name (e.g. 1BHK Cleaning)" 
+                                      className="flex-1" 
+                                    />
+                                    <Input 
+                                      type="number"
+                                      value={task.price} 
+                                      onChange={e => {
+                                        const newTasks = [...(editData.customTasks || [])];
+                                        newTasks[idx].price = Number(e.target.value);
+                                        setEditData({ ...editData, customTasks: newTasks });
+                                      }}
+                                      placeholder="Price" 
+                                      className="w-24" 
+                                    />
+                                    <Button 
+                                      type="button" 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => {
+                                        const newTasks = [...(editData.customTasks || [])];
+                                        newTasks.splice(idx, 1);
+                                        setEditData({ ...editData, customTasks: newTasks });
+                                      }}
+                                    >
+                                      <X className="w-4 h-4 text-red-500" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="w-full text-xs"
+                                onClick={() => {
+                                  const newTasks = [...(editData.customTasks || []), { name: '', price: 0 }];
+                                  setEditData({ ...editData, customTasks: newTasks });
+                                }}
+                              >
+                                + Add Custom Task
+                              </Button>
+                            </div>
+
                             <div className="flex space-x-2 pt-2">
                               <Button onClick={handleProfileSave} disabled={savingProfile} className="flex-1 bg-[#FF7A00] hover:bg-[#E66E00] text-white">
                                 {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save
@@ -285,6 +342,20 @@ export default function WorkerDashboard() {
                               <p className="mt-6 text-sm text-gray-500 leading-relaxed italic bg-gray-50 p-4 rounded-lg border border-gray-100">
                                 &ldquo;{workerProfile.description}&rdquo;
                               </p>
+                            )}
+
+                            {workerProfile.customTasks && workerProfile.customTasks.length > 0 && (
+                              <div className="mt-6 pt-4 border-t border-gray-100">
+                                <h3 className="text-sm font-semibold text-gray-900 mb-3">Custom Tasks & Fixed Rates</h3>
+                                <div className="space-y-2">
+                                  {workerProfile.customTasks.map((task, idx) => (
+                                    <div key={idx} className="flex justify-between text-sm bg-gray-50 p-2 rounded-md border border-gray-100">
+                                      <span className="text-gray-700">{task.name}</span>
+                                      <span className="font-semibold text-green-600">₹{task.price}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             )}
                           </motion.div>
                         )}

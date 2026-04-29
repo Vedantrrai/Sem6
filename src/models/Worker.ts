@@ -14,6 +14,7 @@ export interface IWorker extends Document {
     availability: 'Available' | 'Busy';
     completedJobs: number;
     description?: string;
+    customTasks?: { name: string; price: number }[];
     phone?: string;
     email?: string;
     userId?: mongoose.Types.ObjectId; // linked user account if worker registered
@@ -82,6 +83,15 @@ const WorkerSchema = new Schema<IWorker>(
         description: {
             type: String,
             trim: true,
+        },
+        customTasks: {
+            type: [
+                {
+                    name: { type: String, required: true },
+                    price: { type: Number, required: true },
+                }
+            ],
+            default: [],
         },
         phone: {
             type: String,

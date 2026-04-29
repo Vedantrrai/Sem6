@@ -106,6 +106,7 @@ export interface WorkerData {
     availability: 'Available' | 'Busy';
     completedJobs: number;
     description?: string;
+    customTasks?: { name: string; price: number }[];
 }
 
 export const workersAPI = {

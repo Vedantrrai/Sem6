@@ -74,6 +74,19 @@ export default function SignupPage() {
     setError('');
     setLoading(true);
 
+    if (phone.length !== 10) {
+      setError('Mobile number must be exactly 10 digits');
+      setLoading(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
     let extraData = {};
     if (role === 'worker') {
       if (!hourlyRate || !experience) {
@@ -179,7 +192,7 @@ export default function SignupPage() {
                         type="text"
                         placeholder="Enter your name"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => setName(e.target.value.replace(/[^a-zA-Z\s]/g, ''))}
                         required
                         className="mt-2"
                       />
@@ -190,9 +203,9 @@ export default function SignupPage() {
                       <Input
                         id="phone"
                         type="tel"
-                        placeholder="+91 XXXXXXXXXX"
+                        placeholder="10-digit mobile number"
                         value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         required
                         className="mt-2"
                       />

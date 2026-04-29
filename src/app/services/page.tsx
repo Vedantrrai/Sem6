@@ -30,18 +30,79 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 
+const SERVICE_TYPES: Record<string, { name: string, hours: number }[]> = {
+  'Cleaner': [
+    { name: '1 BHK Deep Cleaning', hours: 4 },
+    { name: '2 BHK Deep Cleaning', hours: 6 },
+    { name: 'Bathroom Cleaning', hours: 2 },
+    { name: 'Sofa Cleaning', hours: 1.5 },
+  ],
+  'Plumber': [
+    { name: 'Tap/Pipe Repair', hours: 1 },
+    { name: 'Washbasin Installation', hours: 2 },
+    { name: 'Water Heater Installation', hours: 1.5 },
+    { name: 'Full Bathroom Fittings', hours: 5 },
+  ],
+  'Electrician': [
+    { name: 'Fan/Light Installation', hours: 1 },
+    { name: 'Switchboard Repair', hours: 1 },
+    { name: 'Inverter Setup', hours: 2 },
+    { name: 'Full House Wiring Check', hours: 3 },
+  ],
+  'Carpenter': [
+    { name: 'Door/Lock Repair', hours: 1 },
+    { name: 'Bed/Furniture Assembly', hours: 2 },
+    { name: 'Custom Shelving (Minor)', hours: 3 },
+    { name: 'Modular Kitchen Repair', hours: 4 },
+  ],
+  'Painter': [
+    { name: 'Single Wall Touchup', hours: 2 },
+    { name: '1 Room Painting', hours: 6 },
+    { name: 'Full House Assessment', hours: 1 },
+  ],
+  'AC Repair': [
+    { name: 'AC Servicing (Split/Window)', hours: 1.5 },
+    { name: 'AC Installation', hours: 2 },
+    { name: 'Gas Refill', hours: 1 },
+  ],
+  'Driver': [
+    { name: 'City Drive (4 Hours)', hours: 4 },
+    { name: 'City Drive (8 Hours)', hours: 8 },
+    { name: 'Outstation (12 Hours)', hours: 12 },
+  ],
+  'Beautician': [
+    { name: 'Basic Cleanup & Threading', hours: 1 },
+    { name: 'Facial & Massage', hours: 2 },
+    { name: 'Bridal Makeup', hours: 4 },
+    { name: 'Haircut & Styling', hours: 1.5 },
+  ]
+};
+
 export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWorker, setSelectedWorker] = useState<WorkerData | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingDate, setBookingDate] = useState<Date | undefined>(new Date());
-  const [bookingTime, setBookingTime] = useState('');
+  const [bookingStartTime, setBookingStartTime] = useState('');
+  const [bookingEndTime, setBookingEndTime] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [workers, setWorkers] = useState<WorkerData[]>([]);
   const [loadingWorkers, setLoadingWorkers] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [selectedTaskType, setSelectedTaskType] = useState<{name: string, hours?: number, price?: number} | null>(null);
+
+  useEffect(() => {
+    if (selectedWorker) {
+      if (selectedWorker.customTasks && selectedWorker.customTasks.length > 0) {
+        setSelectedTaskType(selectedWorker.customTasks[0]);
+      } else {
+        const types = SERVICE_TYPES[selectedWorker.service] || [{ name: 'General Service', hours: 2 }];
+        setSelectedTaskType(types[0]);
+      }
+    }
+  }, [selectedWorker]);
 
   // Fetch workers from MongoDB on category/search change
   useEffect(() => {
@@ -83,20 +144,43 @@ export default function ServicesPage() {
     try {
       setBookingLoading(true);
       const workerId = selectedWorker._id || selectedWorker.id;
+      
+      const parseTime = (timeStr: string) => {
+        if (!timeStr) return 0;
+        const [time, period] = timeStr.split(' ');
+        let [hours] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        return hours;
+      };
+
+      const durationHours = Math.max(1, parseTime(bookingEndTime) - parseTime(bookingStartTime));
+      
+      let fixedAmount = 0;
+      if (selectedTaskType?.price) {
+        fixedAmount = selectedTaskType.price;
+      } else {
+        fixedAmount = Math.round((selectedWorker.hourlyRate || 0) * durationHours);
+      }
+      
+      const finalNotes = selectedTaskType ? `Task: ${selectedTaskType.name}\n\n${notes}` : notes;
+
       await bookingsAPI.create({
         workerId,
         date: bookingDate.toLocaleDateString('en-CA'),
-        time: bookingTime,
+        time: `${bookingStartTime} - ${bookingEndTime}`,
         address,
-        notes,
-        amount: selectedWorker.hourlyRate,
+        notes: finalNotes,
+        amount: fixedAmount,
       });
 
       toast.success('Booking Confirmed! 🎉', {
         description: (
           <div className="text-sm text-left">
             <p>Worker: <strong>{selectedWorker.name}</strong></p>
-            <p>Date: <strong>{bookingDate.toLocaleDateString()}</strong> at <strong>{bookingTime}</strong></p>
+            <p>Date: <strong>{bookingDate.toLocaleDateString()}</strong></p>
+            <p>Time: <strong>{bookingStartTime} to {bookingEndTime}</strong></p>
+            <p>Task: <strong>{selectedTaskType?.name}</strong></p>
             <p>Payment: <strong>Cash on Delivery</strong></p>
           </div>
         ),
@@ -115,7 +199,8 @@ export default function ServicesPage() {
 
   const resetBookingForm = () => {
     setBookingDate(new Date());
-    setBookingTime('');
+    setBookingStartTime('');
+    setBookingEndTime('');
     setAddress('');
     setNotes('');
   };
@@ -294,15 +379,53 @@ export default function ServicesPage() {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="startTime" className="text-base font-semibold mb-3 block">Start Time</Label>
+                <Select value={bookingStartTime} onValueChange={setBookingStartTime}>
+                  <SelectTrigger id="startTime">
+                    <SelectValue placeholder="Start time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeSlots.map((time) => (
+                      <SelectItem key={time} value={time}>{time}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="endTime" className="text-base font-semibold mb-3 block">End Time</Label>
+                <Select value={bookingEndTime} onValueChange={setBookingEndTime}>
+                  <SelectTrigger id="endTime">
+                    <SelectValue placeholder="End time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeSlots.map((time) => (
+                      <SelectItem key={time} value={time}>{time}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="time" className="text-base font-semibold mb-3 block">Select Time</Label>
-              <Select value={bookingTime} onValueChange={setBookingTime}>
-                <SelectTrigger id="time">
-                  <SelectValue placeholder="Choose a time slot" />
+              <Label htmlFor="taskType" className="text-base font-semibold mb-3 block">What needs to be done?</Label>
+              <Select 
+                value={selectedTaskType?.name || ''} 
+                onValueChange={(val) => {
+                  const options = selectedWorker?.customTasks?.length ? selectedWorker.customTasks : (SERVICE_TYPES[selectedWorker?.service || ''] || [{ name: 'General Service', hours: 2 }]);
+                  const found = options.find(t => t.name === val);
+                  if (found) setSelectedTaskType(found);
+                }}
+              >
+                <SelectTrigger id="taskType">
+                  <SelectValue placeholder="Select specific task" />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeSlots.map((time) => (
-                    <SelectItem key={time} value={time}>{time}</SelectItem>
+                  {(selectedWorker?.customTasks?.length ? selectedWorker.customTasks : (SERVICE_TYPES[selectedWorker?.service || ''] || [{ name: 'General Service', hours: 2 }])).map((type) => (
+                    <SelectItem key={type.name} value={type.name}>
+                      {type.name} {type.price ? `(₹${type.price})` : `(Takes ~${type.hours} hrs)`}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -338,7 +461,20 @@ export default function ServicesPage() {
                   <h4 className="font-semibold mb-1">Cash on Delivery (COD)</h4>
                   <p className="text-sm text-muted-foreground">Pay cash after the service is completed. No advance payment required.</p>
                   <p className="text-lg font-bold mt-2 text-green-600">
-                    Estimated: ₹{selectedWorker?.hourlyRate} - ₹{(selectedWorker?.hourlyRate || 0) * 2}
+                    Fixed Rate: ₹{selectedTaskType?.price ? selectedTaskType.price : Math.round((selectedWorker?.hourlyRate || 0) * Math.max(1, (
+                      (() => {
+                        if (!bookingStartTime || !bookingEndTime) return selectedTaskType?.hours || 1;
+                        const parseTime = (timeStr: string) => {
+                          if (!timeStr) return 0;
+                          const [time, period] = timeStr.split(' ');
+                          let [hours] = time.split(':').map(Number);
+                          if (period === 'PM' && hours !== 12) hours += 12;
+                          if (period === 'AM' && hours === 12) hours = 0;
+                          return hours;
+                        };
+                        return parseTime(bookingEndTime) - parseTime(bookingStartTime);
+                      })()
+                    )))}
                   </p>
                 </div>
               </div>
